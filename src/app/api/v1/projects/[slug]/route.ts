@@ -5,10 +5,11 @@ import { jsonOk, jsonError } from '../../_utils';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(req: NextRequest, { params }: { params: { slug: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   try {
     await connectDB();
-    const project = await ProjectModel.findOne({ slug: params.slug }).lean();
+    const { slug } = await params;
+    const project = await ProjectModel.findOne({ slug }).lean();
     if (!project) return jsonError('Not found', 404);
     return jsonOk(project);
   } catch (e: any) {
@@ -17,11 +18,12 @@ export async function GET(req: NextRequest, { params }: { params: { slug: string
   }
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { slug: string } }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   try {
     await connectDB();
     const body = await req.json();
-    const project = await ProjectModel.findOneAndUpdate({ slug: params.slug }, body, { new: true }).lean();
+    const { slug } = await params;
+    const project = await ProjectModel.findOneAndUpdate({ slug }, body, { new: true }).lean();
     if (!project) return jsonError('Not found', 404);
     return jsonOk(project);
   } catch (e: any) {
@@ -30,10 +32,11 @@ export async function PATCH(req: NextRequest, { params }: { params: { slug: stri
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { slug: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   try {
     await connectDB();
-    const project = await ProjectModel.findOneAndDelete({ slug: params.slug }).lean();
+    const { slug } = await params;
+    const project = await ProjectModel.findOneAndDelete({ slug }).lean();
     if (!project) return jsonError('Not found', 404);
     return jsonOk({ deleted: true });
   } catch (e: any) {

@@ -14,7 +14,10 @@ export default function useProgress(containerSelector: string) {
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
-          if (!enable && entry.isIntersecting) setEnable(true);
+          if (entry.isIntersecting) {
+            // Use functional update to avoid stale closure and dependency on `enable`.
+            setEnable((prev) => prev || true);
+          }
         });
       },
       { rootMargin: `0px 0px -${window.innerHeight - 64}px 0px`, threshold: 0 }
@@ -54,7 +57,7 @@ export default function useProgress(containerSelector: string) {
       window.removeEventListener("scroll", calculateProgress);
       window.removeEventListener("resize", calculateProgress);
     };
-  }, [enable]);
+  }, [enable, containerSelector]);
 
   return { enable, progress };
 }

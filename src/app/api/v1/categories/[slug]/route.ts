@@ -5,11 +5,12 @@ import { jsonOk, jsonError } from '../../_utils';
 
 export const dynamic = 'force-dynamic';
 
-export async function PATCH(req: NextRequest, { params }: { params: { slug: string } }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   try {
     await connectDB();
     const body = await req.json();
-    const doc = await CategoryModel.findOneAndUpdate({ slug: params.slug }, body, { new: true }).lean();
+    const { slug } = await params;
+    const doc = await CategoryModel.findOneAndUpdate({ slug }, body, { new: true }).lean();
     if (!doc) return jsonError('Not found', 404);
     return jsonOk(doc);
   } catch (e: any) {
@@ -17,10 +18,11 @@ export async function PATCH(req: NextRequest, { params }: { params: { slug: stri
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { slug: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   try {
     await connectDB();
-    const doc = await CategoryModel.findOneAndDelete({ slug: params.slug }).lean();
+    const { slug } = await params;
+    const doc = await CategoryModel.findOneAndDelete({ slug }).lean();
     if (!doc) return jsonError('Not found', 404);
     return jsonOk({ deleted: true });
   } catch (e: any) {

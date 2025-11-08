@@ -6,7 +6,6 @@ interface GlobalMongoose {
 }
 
 declare global {
-  // eslint-disable-next-line no-var
   var _mongooseGlobal: GlobalMongoose | undefined;
 }
 
@@ -32,11 +31,11 @@ export async function connectDB() {
       dbName = process.env.MONGODB_DB || 'eficsy-content';
     }
 
-    const opts: Parameters<typeof mongoose.connect>[1] = {
+    const opts: mongoose.ConnectOptions = {
       bufferCommands: false,
       maxPoolSize: 5,
+      dbName,
     };
-    if (dbName) (opts as any).dbName = dbName;
 
     global._mongooseGlobal!.promise = mongoose.connect(uri, opts);
   }

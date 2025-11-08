@@ -39,13 +39,15 @@ export function usePost() {
   return { savePost, debouncedSave, saveStatus, isLoading, post };
 }
 
-function debounce<T extends (...args: any[]) => any>(
-  fn: T,
+function debounce<Args extends unknown[], R>(
+  fn: (...args: Args) => R,
   wait: number
-): (...args: Parameters<T>) => void {
+): (...args: Args) => void {
   let timeout: ReturnType<typeof setTimeout>;
-  return (...args: Parameters<T>) => {
+  return (...args: Args) => {
     clearTimeout(timeout);
-    timeout = setTimeout(() => fn(...args), wait);
+    timeout = setTimeout(() => {
+      void fn(...args);
+    }, wait);
   };
 }

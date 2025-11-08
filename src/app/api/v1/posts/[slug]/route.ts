@@ -5,18 +5,20 @@ import { jsonOk, jsonError } from '../../_utils';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(req: NextRequest, { params }: { params: { slug: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   await connectDB();
-  const post = await PostModel.findOne({ slug: params.slug }).lean();
+  const { slug } = await params;
+  const post = await PostModel.findOne({ slug }).lean();
   if (!post) return jsonError('Not found', 404);
   return jsonOk(post);
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { slug: string } }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   try {
     await connectDB();
     const body = await req.json();
-    const post = await PostModel.findOneAndUpdate({ slug: params.slug }, body, { new: true }).lean();
+    const { slug } = await params;
+    const post = await PostModel.findOneAndUpdate({ slug }, body, { new: true }).lean();
     if (!post) return jsonError('Not found', 404);
     return jsonOk(post);
   } catch (e: any) {
@@ -24,10 +26,11 @@ export async function PATCH(req: NextRequest, { params }: { params: { slug: stri
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { slug: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   try {
     await connectDB();
-    const post = await PostModel.findOneAndDelete({ slug: params.slug }).lean();
+    const { slug } = await params;
+    const post = await PostModel.findOneAndDelete({ slug }).lean();
     if (!post) return jsonError('Not found', 404);
     return jsonOk({ deleted: true });
   } catch (e: any) {
