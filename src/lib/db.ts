@@ -1,49 +1,83 @@
-import mongoose, { Connection } from 'mongoose';
+import mysql from 'mysql2/promise';
 
-interface GlobalMongoose {
-  conn: Connection | null;
-  promise: Promise<typeof mongoose> | null;
+type MySqlPool = mysql.Pool;
+
+interface GlobalMySQL {
+  pool: MySqlPool | null;
+  promise: Promise<MySqlPool> | null;
 }
 
 declare global {
-  var _mongooseGlobal: GlobalMongoose | undefined;
+  // eslint-disable-next-line no-var
+  var _mysqlGlobal: GlobalMySQL | undefined;
 }
 
-if (!global._mongooseGlobal) {
-  global._mongooseGlobal = { conn: null, promise: null };
+if (!global._mysqlGlobal) {
+  global._mysqlGlobal = { pool: null, promise: null };
 }
 
-export async function connectDB() {
-  const { conn, promise } = global._mongooseGlobal!;
-  if (conn) return conn;
-
-  if (!promise) {
-    const uri = process.env.MONGODB_URI;
-    if (!uri) throw new Error('Missing MONGODB_URI environment variable');
-    // Try to extract a database name from the URI path. If absent, fall back to env or a sensible default.
-    let dbName: string | undefined;
-    try {
-      const match = uri.match(/^mongodb(?:\+srv)?:\/\/[^/]+\/(.*?)($|\?|#)/);
-      const fromUri = match && match[1] ? decodeURIComponent(match[1]) : '';
-      const trimmed = fromUri?.trim();
-      dbName = trimmed && trimmed.length > 0 ? trimmed : (process.env.MONGODB_DB || 'eficsy-content');
-    } catch {
-      dbName = process.env.MONGODB_DB || 'eficsy-content';
-    }
-
-    const opts: mongoose.ConnectOptions = {
-      bufferCommands: false,
-      maxPoolSize: 5,
-      dbName,
-    };
-
-    global._mongooseGlobal!.promise = mongoose.connect(uri, opts);
+export async function connectDB(): Promise<MySqlPool> {
+  const state = global._mysqlGlobal!;
+  if (state.pool) {
+    return state.pool;
   }
-  const m = await global._mongooseGlobal!.promise!;
-  global._mongooseGlobal!.conn = m.connection;
-  return m.connection;
+
+  if (!state.promise) {
+    const host = process.env.MYSQL_HOST || 'localhost';
+    const user = process.env.MYSQL_USER || 'root';
+    const password = process.env.MYSQL_PASSWORD || '';
+    const database = process.env.MYSQL_DATABASE || 'eficsy_content';
+
+    const pool = mysql.createPool({
+      host,
+      user,
+      password,
+      database,
+      waitForConnections: true,
+      connectionLimit: 10,
+      queueLimit: 0,
+      enableKeepAlive: true,
+      keepAliveInitialDelay: 0,
+    });
+
+    state.promise = pool
+      .query('SELECT 1')
+      .then(() => pool)
+      .catch((error: unknown) => {
+        // Clear the promise so future attempts can retry
+        state.promise = null;
+        // Best-effort pool shutdown
+        pool.end().catch(() => undefined);
+
+        // Build a helpful message for common connection problems
+        const host = process.env.MYSQL_HOST || 'localhost';
+        const user = process.env.MYSQL_USER || 'unknown';
+        let msg = 'Failed to connect to MySQL';
+        try {
+          // some mysql2 errors include message property
+          // keep typesafe access
+          const e: any = error;
+          if (e && e.message) msg = `${msg}: ${e.message}`;
+        } catch {}
+
+        const help = `\n- Host: ${host}\n- User: ${user}\nPossible causes: MySQL server not running, incorrect host/port, firewall/remote access blocked by host provider, or wrong credentials. If you are running the app locally and the DB is hosted on Hostinger, either run the app on the same host or enable remote DB access / use the provider's external hostname.`;
+
+        const err = new Error(msg + help);
+        // preserve original stack if present
+        (err as any).original = error;
+        throw err;
+      });
+  }
+
+  state.pool = await state.promise;
+  return state.pool;
 }
 
-export function disconnectDB() {
-  return mongoose.connection.close();
+export async function disconnectDB() {
+  const state = global._mysqlGlobal;
+  if (state?.pool) {
+    await state.pool.end();
+    state.pool = null;
+    state.promise = null;
+  }
 }
